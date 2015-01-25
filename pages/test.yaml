@@ -1,0 +1,9 @@
+template: ../templates/test-template.html
+title: My title
+header: |
+  <link href="main.css" rel="stylesheet">
+body: |
+  This is a test.
+  <p>It includes some html markup</p>
+    As well as indentation.
+footer: "&copy; Nat Wilson"
