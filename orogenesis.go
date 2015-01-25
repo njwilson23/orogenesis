@@ -78,41 +78,7 @@ func main() {
 				fmt.Println(err)
 			}
 		} else {
-			fmt.Println(fnm, "does not exist or is not recognized as YAML")
+			fmt.Println(fnm, "does not exist")
 		}
 	}
-
-	/*contentpath, err := os.Open("pages")
-	contentlist, err := contentpath.Readdir(-1)
-	if err != nil {
-		panic(err)
-	}
-
-	var page *Page
-	for _, file := range contentlist {
-		fnm := file.Name()
-		if filepath.Ext(fnm) == ".yaml" && !file.IsDir() {
-
-			fmt.Println("parsing", fnm)
-			page, err = readcontent(filepath.Join(contentpath.Name(), fnm))
-			if err != nil {
-				fmt.Println(err)
-				break
-			}
-
-			fnm_html := fnm[:len(fnm)-5] + ".html"
-			fmt.Println("writing to", fnm_html)
-			fout, err := os.Create(fnm_html)
-			defer fout.Close()
-			if err != nil {
-				fmt.Println(err)
-				break
-			}
-
-			err = buildpage(page.Template, fout, page)
-			if err != nil {
-				fmt.Println(err)
-			}
-		}
-	}*/
 }
