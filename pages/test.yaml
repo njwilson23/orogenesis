@@ -1,9 +1,10 @@
 template: ../templates/test-template.html
-title: My title
-header: |
+title-raw: My title
+header-raw: |
   <link href="main.css" rel="stylesheet">
-body: |
+body-raw: |
   This is a test.
   <p>It includes some html markup</p>
     As well as indentation.
-footer: "&copy; Nat Wilson"
+footer-raw: "&copy; Nat Wilson"
+output-html: _build/test.html

@@ -3,32 +3,82 @@ package main
 import (
 	"fmt"
 	"gopkg.in/yaml.v2"
+	"html/template"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"text/template"
 )
 
 type Page struct {
-	Template string
-	Title    string
-	Header   string
-	Body     string
-	Footer   string
+	TemplatePath string `yaml:"template"`
+	TitlePath    string `yaml:"title"`
+	TitleRaw     string `yaml:"title-raw"`
+	HeaderPath   string `yaml:"header"`
+	HeaderRaw    string `yaml:"header-raw"`
+	BodyPath     string `yaml:"body"`
+	BodyRaw      string `yaml:"body-raw"`
+	FooterPath   string `yaml:"footer"`
+	FooterRaw    string `yaml:"footer-raw"`
+	Output       string `yaml:"output-html"`
 }
 
 func (p Page) String() string {
 	return fmt.Sprintf("%v\n%s\n%s\n%s\n", p.Title, p.Header, p.Body, p.Footer)
 }
 
-func readcontent(path string) (*Page, error) {
+func (page *Page) Title() template.HTML {
+	var html string
+	if &page.TitleRaw == nil {
+		htmlbytes, _ := ioutil.ReadFile(page.TitlePath)
+		html = string(htmlbytes)
+	} else {
+		html = page.TitleRaw
+	}
+	return template.HTML(html)
+}
+
+func (page *Page) Header() template.HTML {
+	var html string
+	if &page.HeaderRaw == nil {
+		htmlbytes, _ := ioutil.ReadFile(page.HeaderPath)
+		html = string(htmlbytes)
+	} else {
+		html = page.HeaderRaw
+	}
+	return template.HTML(html)
+}
+
+func (page *Page) Body() template.HTML {
+	var html string
+	if &page.BodyRaw == nil {
+		htmlbytes, _ := ioutil.ReadFile(page.BodyPath)
+		html = string(htmlbytes)
+	} else {
+		html = page.BodyRaw
+	}
+	return template.HTML(html)
+}
+
+func (page *Page) Footer() template.HTML {
+	var html string
+	if &page.FooterRaw == nil {
+		htmlbytes, _ := ioutil.ReadFile(page.FooterPath)
+		html = string(htmlbytes)
+	} else {
+		html = page.FooterRaw
+	}
+	return template.HTML(html)
+}
+
+func readconfig(path string) (*Page, error) {
 	var page Page
 	var err error
-	pagedata, err := ioutil.ReadFile(path)
+
+	data, err := ioutil.ReadFile(path)
 	if err != nil {
 		return &page, err
 	}
-	err = yaml.Unmarshal(pagedata, &page)
+	err = yaml.Unmarshal(data, &page)
 	return &page, err
 }
 
@@ -51,19 +101,25 @@ func main() {
 		fmt.Println("At least one content file must be specified")
 	}
 
-	var page *Page
+	var pagePtr *Page
 	var fnm_html, templatepath string
 	for _, fnm := range args {
 		if _, err := os.Stat(fnm); !os.IsNotExist(err) {
 
 			fmt.Println("parsing", fnm)
-			page, err = readcontent(fnm)
+			pagePtr, err = readconfig(fnm)
 			if err != nil {
 				fmt.Println(err)
 				break
 			}
+			fmt.Println("using template at", pagePtr.TemplatePath)
 
-			fnm_html = filepath.Base(fnm[:len(fnm)-5]) + ".html"
+			if &pagePtr.Output != nil {
+				fnm_html = pagePtr.Output
+			} else {
+				fnm_html = filepath.Base(fnm[:len(fnm)-5]) + ".html"
+			}
+
 			fmt.Println("writing to", fnm_html)
 			fout, err := os.Create(fnm_html)
 			defer fout.Close()
@@ -72,8 +128,8 @@ func main() {
 				break
 			}
 
-			templatepath = filepath.Join(filepath.Dir(fnm), page.Template)
-			err = buildpage(templatepath, fout, page)
+			templatepath = filepath.Join(filepath.Dir(fnm), pagePtr.TemplatePath)
+			err = buildpage(templatepath, fout, pagePtr)
 			if err != nil {
 				fmt.Println(err)
 			}
