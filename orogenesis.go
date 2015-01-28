@@ -19,7 +19,7 @@ type Page struct {
 	BodyRaw      string `yaml:"body-raw"`
 	FooterPath   string `yaml:"footer"`
 	FooterRaw    string `yaml:"footer-raw"`
-	Output       string `yaml:"output-html"`
+	Output       string `yaml:"output-html,omitempty"`
 }
 
 func (p Page) String() string {
@@ -28,8 +28,11 @@ func (p Page) String() string {
 
 func (page *Page) gethtml(raw *string, path *string) template.HTML {
 	var html string
-	if &raw == nil {
-		htmlbytes, _ := ioutil.ReadFile(*path)
+	if len(*raw) == 0 {
+		htmlbytes, err := ioutil.ReadFile(*path)
+		if err != nil {
+			fmt.Println(err)
+		}
 		html = string(htmlbytes)
 	} else {
 		html = *raw
@@ -62,6 +65,21 @@ func readconfig(path string) (*Page, error) {
 		return &page, err
 	}
 	err = yaml.Unmarshal(data, &page)
+
+	basepath := filepath.Dir(path)
+	if len(page.TitlePath) != 0 {
+		page.TitlePath = filepath.Join(basepath, page.TitlePath)
+	}
+	if len(page.HeaderPath) != 0 {
+		page.HeaderPath = filepath.Join(basepath, page.HeaderPath)
+	}
+	if len(page.BodyPath) != 0 {
+		page.BodyPath = filepath.Join(basepath, page.BodyPath)
+	}
+	if len(page.FooterPath) != 0 {
+		page.FooterPath = filepath.Join(basepath, page.FooterPath)
+	}
+
 	return &page, err
 }
 
@@ -97,15 +115,14 @@ func main() {
 			}
 			fmt.Println("using template at", pagePtr.TemplatePath)
 
-			if &pagePtr.Output != nil {
-				fnm_html = pagePtr.Output
-			} else {
+			if len(pagePtr.Output) == 0 {
 				fnm_html = filepath.Base(fnm[:len(fnm)-5]) + ".html"
+			} else {
+				fnm_html = pagePtr.Output
 			}
 
 			fmt.Println("writing to", fnm_html)
 			fout, err := os.Create(fnm_html)
-			defer fout.Close()
 			if err != nil {
 				fmt.Println(err)
 				break
