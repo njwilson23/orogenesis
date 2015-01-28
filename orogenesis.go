@@ -26,48 +26,31 @@ func (p Page) String() string {
 	return fmt.Sprintf("%v\n%s\n%s\n%s\n", p.Title, p.Header, p.Body, p.Footer)
 }
 
-func (page *Page) Title() template.HTML {
+func (page *Page) gethtml(raw *string, path *string) template.HTML {
 	var html string
-	if &page.TitleRaw == nil {
-		htmlbytes, _ := ioutil.ReadFile(page.TitlePath)
+	if &raw == nil {
+		htmlbytes, _ := ioutil.ReadFile(*path)
 		html = string(htmlbytes)
 	} else {
-		html = page.TitleRaw
+		html = *raw
 	}
 	return template.HTML(html)
+}
+
+func (page *Page) Title() template.HTML {
+	return page.gethtml(&page.TitleRaw, &page.TitlePath)
 }
 
 func (page *Page) Header() template.HTML {
-	var html string
-	if &page.HeaderRaw == nil {
-		htmlbytes, _ := ioutil.ReadFile(page.HeaderPath)
-		html = string(htmlbytes)
-	} else {
-		html = page.HeaderRaw
-	}
-	return template.HTML(html)
+	return page.gethtml(&page.HeaderRaw, &page.HeaderPath)
 }
 
 func (page *Page) Body() template.HTML {
-	var html string
-	if &page.BodyRaw == nil {
-		htmlbytes, _ := ioutil.ReadFile(page.BodyPath)
-		html = string(htmlbytes)
-	} else {
-		html = page.BodyRaw
-	}
-	return template.HTML(html)
+	return page.gethtml(&page.BodyRaw, &page.BodyPath)
 }
 
 func (page *Page) Footer() template.HTML {
-	var html string
-	if &page.FooterRaw == nil {
-		htmlbytes, _ := ioutil.ReadFile(page.FooterPath)
-		html = string(htmlbytes)
-	} else {
-		html = page.FooterRaw
-	}
-	return template.HTML(html)
+	return page.gethtml(&page.FooterRaw, &page.FooterPath)
 }
 
 func readconfig(path string) (*Page, error) {
