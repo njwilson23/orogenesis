@@ -26,6 +26,8 @@ func (p Page) String() string {
 	return fmt.Sprintf("%v\n%s\n%s\n%s\n", p.Title, p.Header, p.Body, p.Footer)
 }
 
+// Returns a template.HTML type with the HTML content from the raw string or
+// path in a Page pointer. Used to construct specific getter methods.
 func (page *Page) gethtml(raw *string, path *string) template.HTML {
 	var html string
 	if len(*raw) == 0 {
@@ -40,6 +42,7 @@ func (page *Page) gethtml(raw *string, path *string) template.HTML {
 	return template.HTML(html)
 }
 
+// Return HTML types for page content
 func (page *Page) Title() template.HTML {
 	return page.gethtml(&page.TitleRaw, &page.TitlePath)
 }
@@ -56,7 +59,8 @@ func (page *Page) Footer() template.HTML {
 	return page.gethtml(&page.FooterRaw, &page.FooterPath)
 }
 
-func readconfig(path string) (*Page, error) {
+// Read a configuration file and return a pointer to a Page struct
+func ReadConfig(path string) (*Page, error) {
 	var page Page
 	var err error
 
@@ -83,15 +87,25 @@ func readconfig(path string) (*Page, error) {
 	return &page, err
 }
 
-func buildpage(templatefile string, fout *os.File, page *Page) error {
-	templatebytes, err := ioutil.ReadFile(templatefile)
+func BuildPage(rootpath string, fout *os.File, page *Page) error {
+	templatepath, _ := filepath.Rel(rootpath, page.TemplatePath)
+	templatebytes, err := ioutil.ReadFile(templatepath)
 	if err != nil {
 		return err
 	}
-	templatename := templatefile[:len(templatefile)-5]
-	t := template.Must(template.New(templatename).Parse(string(templatebytes)))
+	t := template.Must(template.New("unnamed").Parse(string(templatebytes)))
 	err = t.Execute(fout, page)
 	return err
+}
+
+func OutputPath(page *Page, configpath, rootpath string) string {
+	var fnmhtml string
+	if len(page.Output) == 0 {
+		fnmhtml = filepath.Base(configpath[:len(configpath)-5]) + ".html"
+	} else {
+		fnmhtml, _ = filepath.Rel(rootpath, page.Output)
+	}
+	return fnmhtml
 }
 
 func main() {
@@ -103,38 +117,36 @@ func main() {
 	}
 
 	var pagePtr *Page
-	var fnm_html, templatepath string
-	for _, fnm := range args {
-		if _, err := os.Stat(fnm); !os.IsNotExist(err) {
+	var fnmhtml, rootpath string
+	for _, configpath := range args {
+		if _, err := os.Stat(configpath); !os.IsNotExist(err) {
 
-			fmt.Println("parsing", fnm)
-			pagePtr, err = readconfig(fnm)
+			// Read configuration
+			fmt.Println("parsing", configpath)
+			rootpath = filepath.Dir(configpath)
+			pagePtr, err = ReadConfig(configpath)
 			if err != nil {
 				fmt.Println(err)
 				break
 			}
 			fmt.Println("using template at", pagePtr.TemplatePath)
 
-			if len(pagePtr.Output) == 0 {
-				fnm_html = filepath.Base(fnm[:len(fnm)-5]) + ".html"
-			} else {
-				fnm_html = pagePtr.Output
-			}
+			fnmhtml = OutputPath(pagePtr, configpath, rootpath)
+			fmt.Println("writing to", fnmhtml)
 
-			fmt.Println("writing to", fnm_html)
-			fout, err := os.Create(fnm_html)
+			// Write output
+			fout, err := os.Create(fnmhtml)
 			if err != nil {
 				fmt.Println(err)
 				break
 			}
 
-			templatepath = filepath.Join(filepath.Dir(fnm), pagePtr.TemplatePath)
-			err = buildpage(templatepath, fout, pagePtr)
+			err = BuildPage(rootpath, fout, pagePtr)
 			if err != nil {
 				fmt.Println(err)
 			}
 		} else {
-			fmt.Println(fnm, "does not exist")
+			fmt.Println(configpath, "does not exist")
 		}
 	}
 }
