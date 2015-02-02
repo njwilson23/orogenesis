@@ -1,3 +1,10 @@
+/* oro-build
+
+	oro-build config.yaml [config1.yaml [...]]
+
+Tool to construct static HTML pages.
+*/
+
 package main
 
 import (
