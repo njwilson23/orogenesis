@@ -31,11 +31,15 @@ func (p Page) String() string {
 func (page *Page) gethtml(raw *string, path *string) template.HTML {
 	var html string
 	if len(*raw) == 0 {
-		htmlbytes, err := ioutil.ReadFile(*path)
-		if err != nil {
-			fmt.Println(err)
+		if len(*path) == 0 {
+			html = ""
+		} else {
+			htmlbytes, err := ioutil.ReadFile(*path)
+			if err != nil {
+				fmt.Println(err)
+			}
+			html = string(htmlbytes)
 		}
-		html = string(htmlbytes)
 	} else {
 		html = *raw
 	}
@@ -88,7 +92,7 @@ func ReadConfig(path string) (*Page, error) {
 }
 
 func BuildPage(rootpath string, fout *os.File, page *Page) error {
-	templatepath, _ := filepath.Rel(rootpath, page.TemplatePath)
+	templatepath := filepath.Join(rootpath, page.TemplatePath)
 	templatebytes, err := ioutil.ReadFile(templatepath)
 	if err != nil {
 		return err
@@ -103,7 +107,7 @@ func OutputPath(page *Page, configpath, rootpath string) string {
 	if len(page.Output) == 0 {
 		fnmhtml = filepath.Base(configpath[:len(configpath)-5]) + ".html"
 	} else {
-		fnmhtml, _ = filepath.Rel(rootpath, page.Output)
+		fnmhtml = filepath.Join(rootpath, page.Output)
 	}
 	return fnmhtml
 }
@@ -130,7 +134,6 @@ func main() {
 				break
 			}
 			fmt.Println("using template at", pagePtr.TemplatePath)
-
 			fnmhtml = OutputPath(pagePtr, configpath, rootpath)
 			fmt.Println("writing to", fnmhtml)
 
