@@ -1,0 +1,5 @@
+template: example-template.html
+title-raw: Title fragment
+header: example/header.html
+body: example/body.html
+footer: example/footer.html
