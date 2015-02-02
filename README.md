@@ -1,6 +1,11 @@
 # Orogenesis
 
-Orogensis is the tool used to build [ironicmtn](http://www.ironicmtn.com).
+Orogenesis is the tool used to build [ironicmtn](http://www.ironicmtn.com).
+
+## Subprograms
+
+**oro-build**: constructs one or more pages when executed with YAML
+configuration file(s) as arguments
 
 ## YAML Keys
 
