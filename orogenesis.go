@@ -15,6 +15,8 @@ type Page struct {
 	TitleRaw     string `yaml:"title-raw"`
 	HeaderPath   string `yaml:"header"`
 	HeaderRaw    string `yaml:"header-raw"`
+	NavPath      string `yaml:"nav"`
+	NavRaw       string `yaml:"nav-raw"`
 	BodyPath     string `yaml:"body"`
 	BodyRaw      string `yaml:"body-raw"`
 	FooterPath   string `yaml:"footer"`
@@ -23,7 +25,7 @@ type Page struct {
 }
 
 func (p Page) String() string {
-	return fmt.Sprintf("%v\n%s\n%s\n%s\n", p.Title, p.Header, p.Body, p.Footer)
+	return fmt.Sprintf("%v\n%s\n%s\n%s\n%s\n", p.Title, p.Header, p.Nav, p.Body, p.Footer)
 }
 
 // Returns a template.HTML type with the HTML content from the raw string or
@@ -55,6 +57,10 @@ func (page *Page) Header() template.HTML {
 	return page.gethtml(&page.HeaderRaw, &page.HeaderPath)
 }
 
+func (page *Page) Nav() template.HTML {
+	return page.gethtml(&page.NavRaw, &page.NavPath)
+}
+
 func (page *Page) Body() template.HTML {
 	return page.gethtml(&page.BodyRaw, &page.BodyPath)
 }
@@ -80,6 +86,9 @@ func ReadConfig(path string) (*Page, error) {
 	}
 	if len(page.HeaderPath) != 0 {
 		page.HeaderPath = filepath.Join(basepath, page.HeaderPath)
+	}
+	if len(page.NavPath) != 0 {
+		page.NavPath = filepath.Join(basepath, page.NavPath)
 	}
 	if len(page.BodyPath) != 0 {
 		page.BodyPath = filepath.Join(basepath, page.BodyPath)
