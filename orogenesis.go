@@ -100,23 +100,35 @@ func ReadConfig(path string) (*Page, error) {
 	return &page, err
 }
 
-func BuildPage(rootpath string, fout *os.File, page *Page) error {
-	templatepath := filepath.Join(rootpath, page.TemplatePath)
+func BuildPage(configpath string, page *Page) (string, error) {
+
+	fnmhtml := OutputPath(page, configpath)
+
+	fout, err := os.Create(fnmhtml)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	templatepath := filepath.Join(filepath.Dir(configpath), page.TemplatePath)
 	templatebytes, err := ioutil.ReadFile(templatepath)
 	if err != nil {
-		return err
+		return "", err
 	}
 	t := template.Must(template.New("unnamed").Parse(string(templatebytes)))
+
 	err = t.Execute(fout, page)
-	return err
+	return fnmhtml, err
 }
 
-func OutputPath(page *Page, configpath, rootpath string) string {
+func OutputPath(page *Page, configpath string) string {
 	var fnmhtml string
+
 	if len(page.Output) == 0 {
 		fnmhtml = filepath.Base(configpath[:len(configpath)-5]) + ".html"
 	} else {
+		rootpath := filepath.Dir(configpath)
 		fnmhtml = filepath.Join(rootpath, page.Output)
 	}
+
 	return fnmhtml
 }

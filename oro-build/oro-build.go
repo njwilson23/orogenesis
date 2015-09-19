@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"github.com/njwilson23/orogenesis"
 	"os"
-	"path/filepath"
 )
 
 func main() {
@@ -23,33 +22,26 @@ func main() {
 	}
 
 	var pagePtr *orogenesis.Page
-	var fnmhtml, rootpath string
+	var fnmhtml string
 	for _, configpath := range args {
 		if _, err := os.Stat(configpath); !os.IsNotExist(err) {
 
 			// Read configuration
 			fmt.Println("parsing", configpath)
-			rootpath = filepath.Dir(configpath)
 			pagePtr, err = orogenesis.ReadConfig(configpath)
 			if err != nil {
 				fmt.Println(err)
 				break
 			}
-			fmt.Println("using template at", pagePtr.TemplatePath)
-			fnmhtml = orogenesis.OutputPath(pagePtr, configpath, rootpath)
-			fmt.Println("writing to", fnmhtml)
+			fmt.Println("  using template at", pagePtr.TemplatePath)
 
-			// Write output
-			fout, err := os.Create(fnmhtml)
+			fnmhtml, err = orogenesis.BuildPage(configpath, pagePtr)
 			if err != nil {
 				fmt.Println(err)
-				break
+			} else {
+				fmt.Println(" ", fnmhtml, "written")
 			}
 
-			err = orogenesis.BuildPage(rootpath, fout, pagePtr)
-			if err != nil {
-				fmt.Println(err)
-			}
 		} else {
 			fmt.Println(configpath, "does not exist")
 		}
