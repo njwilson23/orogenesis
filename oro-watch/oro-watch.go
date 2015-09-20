@@ -14,54 +14,69 @@ func Rebuild(configpath string) error {
 }
 
 /* Add the source files for a page to a watcher */
-func AddPageSources(w *fsnotify.Watcher, configDir string, config *orogenesis.Page) error {
-	var err error
-	err = nil
+func AddPageSources(w *fsnotify.Watcher, configPath string, config *orogenesis.Page) error {
+
+	//configDir := filepath.Dir(configPath)
+	err := w.Add(configPath)
+	if err != nil {
+		log.Println("ERROR:", err)
+		log.Println(configPath)
+	} else {
+		log.Println(" added source:", configPath)
+	}
+
 	if len(config.TemplatePath) != 0 {
-		err := w.Add(filepath.Join(configDir, config.TemplatePath))
-		log.Println(" ", filepath.Join(configDir, config.TemplatePath))
+		err := w.Add(config.TemplatePath)
 		if err != nil {
-			log.Println(err)
+			log.Println("ERROR:", err)
 			log.Println(config.TemplatePath)
+		} else {
+			log.Println(" added source:", config.TemplatePath)
 		}
 	}
 	if len(config.HeaderPath) != 0 {
 		err := w.Add(config.HeaderPath)
-		log.Println("DBG: added", config.HeaderPath)
 		if err != nil {
-			log.Println(err)
+			log.Println("ERROR:", err)
 			log.Println(" ", config.HeaderPath)
+		} else {
+			log.Println(" added source:", config.HeaderPath)
 		}
 	}
 	if len(config.NavPath) != 0 {
 		err := w.Add(config.NavPath)
-		log.Println("DBG: added", config.NavPath)
 		if err != nil {
-			log.Println(err)
+			log.Println("ERROR:", err)
 			log.Println(" ", config.NavPath)
+		} else {
+			log.Println(" added source:", config.NavPath)
 		}
 	}
 	if len(config.BodyPath) != 0 {
 		err := w.Add(config.BodyPath)
-		log.Println("DBG: added", config.BodyPath)
 		if err != nil {
-			log.Println(err)
+			log.Println("ERROR:", err)
 			log.Println(" ", config.BodyPath)
+		} else {
+			log.Println(" added source:", config.BodyPath)
 		}
+
 	}
 	if len(config.FooterPath) != 0 {
 		err := w.Add(config.FooterPath)
-		log.Println("DBG: added", config.FooterPath)
 		if err != nil {
-			log.Println(err)
+			log.Println("ERROR:", err)
 			log.Println(" ", config.FooterPath)
+		} else {
+			log.Println(" added source:", config.FooterPath)
 		}
 	}
 	return err
 }
 
 // Check the source files for *configpath* and update a hash table with dependency relationships
-func UpdateSourceDependencies(sourceHash map[string]string, configpath string, config *orogenesis.Page) error {
+func UpdateDependencyHash(sourceHash map[string]string, configpath string, config *orogenesis.Page) error {
+
 	sourceHash[configpath] = configpath
 	if len(config.TemplatePath) != 0 {
 		sourceHash[config.TemplatePath] = configpath
@@ -122,12 +137,12 @@ func main() {
 				log.Fatal(err)
 			}
 
-			err = AddPageSources(source_watcher, configDir, config)
+			err = AddPageSources(source_watcher, fnm, config)
 			if err != nil {
 				log.Fatal(err)
 			}
 
-			err = UpdateSourceDependencies(sourceHash, fnm, config)
+			err = UpdateDependencyHash(sourceHash, fnm, config)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -141,49 +156,81 @@ func main() {
 	}
 	defer config_watcher.Close()
 
-	done := make(chan bool) // Channel will never be written to, so program will run as a daemon
+	/* Channel will never be written to, so program will run as a daemon */
+	done := make(chan bool)
 
-	// Hook up the source file watcher
+	/* Hook up the source file watcher
+
+	This watches a list of source files, each of which is also a key in
+	*sourceHash*. If one is written to, the watcher triggers BuildPage.
+
+	If a source other than a *.yaml disappears, the watcher will attempt to
+	re-add it.
+
+	If a *.yaml disappears, every source file that it depended on is removed. */
 	go func() {
-		var configpath string
+		var configPath string
+		var err error
 		for {
 			select {
 			case event := <-source_watcher.Events:
 
-				if event.Op&fsnotify.Remove == fsnotify.Remove {
+				if (event.Op&fsnotify.Remove == fsnotify.Remove) ||
+					(event.Op&fsnotify.Rename == fsnotify.Rename) {
 
-					// Saving a file can generale delete events. Check whether
+					// Saving a file can generate delete events. Check whether
 					// file actually deleted before acting
 					if _, err = os.Stat(event.Name); err == nil {
 						source_watcher.Add(event.Name)
 					} else {
+
 						log.Println("DBG: Remove", event.Name)
-						delete(sourceHash, event.Name)
-						err := source_watcher.Remove(event.Name)
-						if err != nil {
-							log.Println(err)
+
+						if filepath.Ext(event.Name) == ".yaml" {
+							for k, v := range sourceHash {
+								if v == event.Name {
+									delete(sourceHash, k)
+									err := source_watcher.Remove(k)
+									if err != nil {
+										log.Println("ERROR:", err)
+									}
+									log.Println("DBG: scrubbed", k)
+								}
+							}
+						} else {
+
+							delete(sourceHash, event.Name)
+							err := source_watcher.Remove(event.Name)
+							if err != nil {
+								log.Println("ERROR:", err)
+							}
+							log.Println("DBG: scrubbed", event.Name)
 						}
+
 					}
 				} else {
 
-					// Write, Rename, Chmod
-					configpath = sourceHash[event.Name]
-					log.Println("DBG:", event.Name)
-					if len(configpath) == 0 {
-						log.Println("Error: key for", event.Name, "not found")
+					// Write, Chmod
+					configPath = sourceHash[event.Name]
+					if len(configPath) == 0 {
+
+						log.Println("ERROR: key for", event.Name, "not found")
+
 					} else {
 
-						config, err = orogenesis.ReadConfig(configpath)
-
+						config, err = orogenesis.ReadConfig(configPath)
 						if err != nil {
+
 							log.Fatal(err)
 
 						} else {
-							log.Println("building", configpath)
-							_, err = orogenesis.BuildPage(configpath, config)
+
+							log.Println("  building", configPath)
+							_, err = orogenesis.BuildPage(configPath, config)
 							if err != nil {
-								log.Fatal(err)
+								log.Fatal("ERROR:", err)
 							}
+
 						}
 					}
 				}
@@ -194,8 +241,14 @@ func main() {
 		}
 	}()
 
-	// Hook up the config directory watcher
+	/* Hook up the config directory watcher
+
+	This is responsible for watching the directory specified as a
+	command-line argument for new YAML files. If one appears, it and its
+	sources are added to the source watcher. If one disappears, it and its
+	sources are removed from the source watcher. */
 	go func() {
+		var err error
 		for {
 			select {
 			case event := <-config_watcher.Events:
@@ -204,30 +257,41 @@ func main() {
 
 					if filepath.Ext(event.Name) == ".yaml" {
 
-						config, err = orogenesis.ReadConfig(fnm)
+						config, err = orogenesis.ReadConfig(event.Name)
 						if err != nil {
 							log.Fatal(err)
 						}
-						AddPageSources(source_watcher, configDir, config)
+						err = AddPageSources(source_watcher, event.Name, config)
+						if err != nil {
+							log.Println("ERROR:", err)
+						}
+						err = UpdateDependencyHash(sourceHash, event.Name, config)
+						if err != nil {
+							log.Fatal(err)
+						}
 						log.Println("Now watching", event.Name)
 					}
 
 				} else if event.Op&fsnotify.Rename == fsnotify.Rename {
 
-					config, err = orogenesis.ReadConfig(fnm)
-					if err != nil {
-						log.Fatal(err)
-					}
-					AddPageSources(source_watcher, configDir, config)
-					log.Println("Renamed", event.Name)
+					//if filepath.Ext(event.Name) == ".yaml" {
+					//	config, err = orogenesis.ReadConfig(event.Name)
+					//	if err != nil {
+					//		log.Fatal(err)
+					//	}
+					//	AddPageSources(source_watcher, event.Name, config)
+					//	log.Println("Renamed", event.Name)
+					//}
+					log.Println("Renamed", event.Name, "(no-op)")
 
 				} else if event.Op&fsnotify.Remove == fsnotify.Remove {
 
-					log.Println("Removed", event.Name)
+					// TODO: remove from source watcher and source hash
+					log.Println("Removed", event.Name, "(no-op)")
 
 				} else if event.Op&fsnotify.Write == fsnotify.Write {
 
-					//pass
+					// pass - source watcher responsible for rebuilds
 
 				}
 

@@ -81,6 +81,9 @@ func ReadConfig(path string) (*Page, error) {
 	err = yaml.Unmarshal(data, &page)
 
 	basepath := filepath.Dir(path)
+	if len(page.TemplatePath) != 0 {
+		page.TemplatePath = filepath.Join(basepath, page.TemplatePath)
+	}
 	if len(page.TitlePath) != 0 {
 		page.TitlePath = filepath.Join(basepath, page.TitlePath)
 	}
@@ -109,8 +112,8 @@ func BuildPage(configpath string, page *Page) (string, error) {
 		fmt.Println(err)
 	}
 
-	templatepath := filepath.Join(filepath.Dir(configpath), page.TemplatePath)
-	templatebytes, err := ioutil.ReadFile(templatepath)
+	//templatepath := filepath.Join(filepath.Dir(configpath), page.TemplatePath)
+	templatebytes, err := ioutil.ReadFile(page.TemplatePath)
 	if err != nil {
 		return "", err
 	}
