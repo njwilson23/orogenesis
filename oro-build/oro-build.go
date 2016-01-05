@@ -33,6 +33,7 @@ func main() {
 			config, data, err = orogenesis.ReadConfig(configPath)
 			if err != nil {
 				fmt.Println(err)
+				fmt.Println("  building from", configPath, "failed")
 				break
 			}
 			fmt.Println("  using template at", config["oro-template"])
@@ -40,9 +41,10 @@ func main() {
 			fnmhtml, err = orogenesis.BuildPage(config, data)
 			if err != nil {
 				fmt.Println(err)
-			} else {
-				fmt.Println(" ", fnmhtml, "written")
+				fmt.Println("  building from", configPath, "failed")
+				break
 			}
+			fmt.Println(" ", fnmhtml, "written")
 
 		} else {
 			fmt.Println(configPath, "does not exist")

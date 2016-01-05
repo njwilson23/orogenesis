@@ -47,11 +47,9 @@ func getExternalHTML(config map[string]string, key *string) (template.HTML, erro
 // Read a configuration file and return a pointer to a Page struct
 func ReadConfig(path string) (map[string]string, map[string]template.HTML, error) {
 
-	var config map[string]string
-	var htmlMap map[string]template.HTML
 	var err error
-
-	htmlMap = make(map[string]template.HTML)
+	var config map[string]string
+	htmlMap := make(map[string]template.HTML)
 
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -68,7 +66,6 @@ func ReadConfig(path string) (map[string]string, map[string]template.HTML, error
 	var templatePath string
 	templatePath, ok = config["oro-template"]
 	if !ok {
-		fmt.Println("'oro-template' key not defined")
 		return config, htmlMap, errors.New("required 'oro-template' key not defined")
 	}
 	config["oro-template"] = filepath.Join(basepath, templatePath)
@@ -76,10 +73,10 @@ func ReadConfig(path string) (map[string]string, map[string]template.HTML, error
 	var outputPath string
 	outputPath, ok = config["oro-output"]
 	if !ok {
-		fmt.Println("'oro-output' key not defined")
-		outputPath = filepath.Base(path[:len(path)-5]) + ".html"
+		config["oro-output"] = filepath.Base(path[:len(path)-5]) + ".html"
+	} else {
+		config["oro-output"] = filepath.Join(basepath, outputPath)
 	}
-	config["oro-output"] = filepath.Join(basepath, outputPath)
 
 	var keystem string
 	var html template.HTML
@@ -88,7 +85,7 @@ func ReadConfig(path string) (map[string]string, map[string]template.HTML, error
 			keystem = strings.Replace(key, "raw-", "", 1)
 			html, err = getRawHTML(config, &keystem)
 			if err != nil {
-				fmt.Println(err)
+				return config, htmlMap, err
 			}
 			htmlMap[keystem] = html
 			delete(config, key)
@@ -97,7 +94,7 @@ func ReadConfig(path string) (map[string]string, map[string]template.HTML, error
 			keystem = strings.Replace(key, "html-", "", 1)
 			html, err = getExternalHTML(config, &keystem)
 			if err != nil {
-				fmt.Println(err)
+				return config, htmlMap, err
 			}
 			htmlMap[keystem] = html
 			delete(config, key)
