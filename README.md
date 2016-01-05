@@ -22,29 +22,9 @@ relevant page(s) whenever source files are modified
 
 ## YAML Keys
 
-*template*: path to the template file (*required*)
-
-*title-raw*: page title
-
-*title-path*: path to file containing the page title
-
-*header-raw*: page header in escaped HTML
-
-*header-path*: path to file containing the page header
-
-*nav-raw*: nav bar content in escaped HTML
-
-*nav-path* path to file containing nav bar content
-
-*body-raw*: page body in escaped HTML
-
-*body-path*: path to file containing the page body
-
-*footer-raw*: page footer in escaped HTML
-
-*footer-path*: path to file containing the page footer
-
-*output-html*: path for output
+Keys prefixed by `oro-` are used to declare templates and output paths. The
+`html-` prefix indicates an HTML source file. The `raw-` prefix is for direct
+code inclusions.
 
 All paths are relative to the template path.
 

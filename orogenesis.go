@@ -1,137 +1,126 @@
 package orogenesis
 
 import (
+	"errors"
 	"fmt"
 	"gopkg.in/yaml.v2"
 	"html/template"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
-type Page struct {
-	TemplatePath string `yaml:"template"`
-	TitlePath    string `yaml:"title"`
-	TitleRaw     string `yaml:"title-raw"`
-	HeaderPath   string `yaml:"header"`
-	HeaderRaw    string `yaml:"header-raw"`
-	NavPath      string `yaml:"nav"`
-	NavRaw       string `yaml:"nav-raw"`
-	BodyPath     string `yaml:"body"`
-	BodyRaw      string `yaml:"body-raw"`
-	FooterPath   string `yaml:"footer"`
-	FooterRaw    string `yaml:"footer-raw"`
-	Output       string `yaml:"output-html,omitempty"`
-}
+// First tries to convert `raw-[name]` to HTML. If the key is missing, tries instead
+// to read a filename from `html-[name]`.
+func getRawHTML(config map[string]string, key *string) (template.HTML, error) {
+	var result template.HTML
 
-func (p Page) String() string {
-	return fmt.Sprintf("%v\n%s\n%s\n%s\n%s\n", p.Title, p.Header, p.Nav, p.Body, p.Footer)
-}
-
-// Returns a template.HTML type with the HTML content from the raw string or
-// path in a Page pointer. Used to construct specific getter methods.
-func (page *Page) gethtml(raw *string, path *string) template.HTML {
-	var html string
-	if len(*raw) == 0 {
-		if len(*path) == 0 {
-			html = ""
-		} else {
-			htmlbytes, err := ioutil.ReadFile(*path)
-			if err != nil {
-				fmt.Println(err)
-			}
-			html = string(htmlbytes)
-		}
-	} else {
-		html = *raw
+	ss := []string{"raw-", *key}
+	tempkey := strings.Join(ss, "")
+	html, ok := config[tempkey]
+	if !ok {
+		return result, errors.New(fmt.Sprintf("key raw-%s not found", key))
 	}
-	return template.HTML(html)
+	result = template.HTML(html)
+	return result, nil
 }
 
-// Return HTML types for page content
-func (page *Page) Title() template.HTML {
-	return page.gethtml(&page.TitleRaw, &page.TitlePath)
-}
+func getExternalHTML(config map[string]string, key *string) (template.HTML, error) {
+	var result template.HTML
 
-func (page *Page) Header() template.HTML {
-	return page.gethtml(&page.HeaderRaw, &page.HeaderPath)
-}
-
-func (page *Page) Nav() template.HTML {
-	return page.gethtml(&page.NavRaw, &page.NavPath)
-}
-
-func (page *Page) Body() template.HTML {
-	return page.gethtml(&page.BodyRaw, &page.BodyPath)
-}
-
-func (page *Page) Footer() template.HTML {
-	return page.gethtml(&page.FooterRaw, &page.FooterPath)
+	ss := []string{"html-", *key}
+	tempkey := strings.Join(ss, "")
+	html, ok := config[tempkey]
+	if !ok {
+		return result, errors.New(fmt.Sprintf("key html-%s not found", key))
+	}
+	htmlbytes, err := ioutil.ReadFile(html)
+	if err != nil {
+		return result, err
+	}
+	html = string(htmlbytes)
+	result = template.HTML(html)
+	return result, nil
 }
 
 // Read a configuration file and return a pointer to a Page struct
-func ReadConfig(path string) (*Page, error) {
-	var page Page
+func ReadConfig(path string) (map[string]string, map[string]template.HTML, error) {
+
+	var config map[string]string
+	var htmlMap map[string]template.HTML
 	var err error
+
+	htmlMap = make(map[string]template.HTML)
 
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
-		return &page, err
+		return config, htmlMap, err
 	}
-	err = yaml.Unmarshal(data, &page)
+	err = yaml.Unmarshal(data, &config)
+	if err != nil {
+		return config, htmlMap, err
+	}
 
 	basepath := filepath.Dir(path)
-	if len(page.TemplatePath) != 0 {
-		page.TemplatePath = filepath.Join(basepath, page.TemplatePath)
-	}
-	if len(page.TitlePath) != 0 {
-		page.TitlePath = filepath.Join(basepath, page.TitlePath)
-	}
-	if len(page.HeaderPath) != 0 {
-		page.HeaderPath = filepath.Join(basepath, page.HeaderPath)
-	}
-	if len(page.NavPath) != 0 {
-		page.NavPath = filepath.Join(basepath, page.NavPath)
-	}
-	if len(page.BodyPath) != 0 {
-		page.BodyPath = filepath.Join(basepath, page.BodyPath)
-	}
-	if len(page.FooterPath) != 0 {
-		page.FooterPath = filepath.Join(basepath, page.FooterPath)
-	}
 
-	return &page, err
+	var ok bool
+	var templatePath string
+	templatePath, ok = config["oro-template"]
+	if !ok {
+		fmt.Println("'oro-template' key not defined")
+		return config, htmlMap, errors.New("required 'oro-template' key not defined")
+	}
+	config["oro-template"] = filepath.Join(basepath, templatePath)
+
+	var outputPath string
+	outputPath, ok = config["oro-output"]
+	if !ok {
+		fmt.Println("'oro-output' key not defined")
+		outputPath = filepath.Base(path[:len(path)-5]) + ".html"
+	}
+	config["oro-output"] = filepath.Join(basepath, outputPath)
+
+	var keystem string
+	var html template.HTML
+	for key := range config {
+		if strings.HasPrefix(key, "raw-") {
+			keystem = strings.Replace(key, "raw-", "", 1)
+			html, err = getRawHTML(config, &keystem)
+			if err != nil {
+				fmt.Println(err)
+			}
+			htmlMap[keystem] = html
+			delete(config, key)
+		} else if strings.HasPrefix(key, "html-") {
+			config[key] = filepath.Join(basepath, config[key])
+			keystem = strings.Replace(key, "html-", "", 1)
+			html, err = getExternalHTML(config, &keystem)
+			if err != nil {
+				fmt.Println(err)
+			}
+			htmlMap[keystem] = html
+			delete(config, key)
+		}
+	}
+	return config, htmlMap, nil
 }
 
-func BuildPage(configpath string, page *Page) (string, error) {
+func BuildPage(config map[string]string, data map[string]template.HTML) (string, error) {
 
-	fnmhtml := OutputPath(page, configpath)
-
-	fout, err := os.Create(fnmhtml)
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	//templatepath := filepath.Join(filepath.Dir(configpath), page.TemplatePath)
-	templatebytes, err := ioutil.ReadFile(page.TemplatePath)
+	fnmHTML := config["oro-output"]
+	templatePath := config["oro-template"]
+	templateBytes, err := ioutil.ReadFile(templatePath)
 	if err != nil {
 		return "", err
 	}
-	t := template.Must(template.New("unnamed").Parse(string(templatebytes)))
 
-	err = t.Execute(fout, page)
-	return fnmhtml, err
-}
-
-func OutputPath(page *Page, configpath string) string {
-	var fnmhtml string
-
-	if len(page.Output) == 0 {
-		fnmhtml = filepath.Base(configpath[:len(configpath)-5]) + ".html"
-	} else {
-		rootpath := filepath.Dir(configpath)
-		fnmhtml = filepath.Join(rootpath, page.Output)
+	fout, err := os.Create(fnmHTML)
+	if err != nil {
+		return "", err
 	}
+	tmpl := template.Must(template.New("toplevel").Parse(string(templateBytes)))
 
-	return fnmhtml
+	err = tmpl.Execute(fout, data)
+	return fnmHTML, err
 }

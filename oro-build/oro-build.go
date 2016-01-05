@@ -10,6 +10,7 @@ package main
 import (
 	"fmt"
 	"github.com/njwilson23/orogenesis"
+	"html/template"
 	"os"
 )
 
@@ -21,21 +22,22 @@ func main() {
 		fmt.Println("At least one content file must be specified")
 	}
 
-	var pagePtr *orogenesis.Page
+	var config map[string]string
+	var data map[string]template.HTML
 	var fnmhtml string
-	for _, configpath := range args {
-		if _, err := os.Stat(configpath); !os.IsNotExist(err) {
+	for _, configPath := range args {
+		if _, err := os.Stat(configPath); !os.IsNotExist(err) {
 
 			// Read configuration
-			fmt.Println("parsing", configpath)
-			pagePtr, err = orogenesis.ReadConfig(configpath)
+			fmt.Println("parsing", configPath)
+			config, data, err = orogenesis.ReadConfig(configPath)
 			if err != nil {
 				fmt.Println(err)
 				break
 			}
-			fmt.Println("  using template at", pagePtr.TemplatePath)
+			fmt.Println("  using template at", config["oro-template"])
 
-			fnmhtml, err = orogenesis.BuildPage(configpath, pagePtr)
+			fnmhtml, err = orogenesis.BuildPage(config, data)
 			if err != nil {
 				fmt.Println(err)
 			} else {
@@ -43,7 +45,7 @@ func main() {
 			}
 
 		} else {
-			fmt.Println(configpath, "does not exist")
+			fmt.Println(configPath, "does not exist")
 		}
 	}
 }
