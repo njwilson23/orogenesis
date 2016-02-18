@@ -9,11 +9,12 @@ import (
 	"path/filepath"
 )
 
+// Rebuild is not implemented. When it is, it will force a page rebuild.
 func Rebuild(configpath string) error {
 	return nil
 }
 
-/* Add the source files for a page to a watcher */
+/* AddPageSources add the source files for a page to a watcher. */
 func AddPageSources(w *fsnotify.Watcher, configPath string, config *orogenesis.Page) error {
 
 	//configDir := filepath.Dir(configPath)
@@ -74,7 +75,8 @@ func AddPageSources(w *fsnotify.Watcher, configPath string, config *orogenesis.P
 	return err
 }
 
-// Check the source files for *configpath* and update a hash table with dependency relationships
+// UpdateDependencyHash checks the source files for *configpath* and updates a
+// hash table with dependency relationships
 func UpdateDependencyHash(sourceHash map[string]string, configpath string, config *orogenesis.Page) error {
 
 	sourceHash[configpath] = configpath
@@ -105,11 +107,11 @@ func main() {
 	}
 
 	// Watcher to watch sources and trigger page builds
-	source_watcher, err := fsnotify.NewWatcher()
+	sourceWatcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer source_watcher.Close()
+	defer sourceWatcher.Close()
 
 	// Check for existing yaml configuration files, build a source hash map,
 	// and set a watcher on the sources
@@ -137,7 +139,7 @@ func main() {
 				log.Fatal(err)
 			}
 
-			err = AddPageSources(source_watcher, fnm, config)
+			err = AddPageSources(sourceWatcher, fnm, config)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -150,11 +152,11 @@ func main() {
 	}
 
 	// Watcher to check for configuration files
-	config_watcher, err := fsnotify.NewWatcher()
+	configWatcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer config_watcher.Close()
+	defer configWatcher.Close()
 
 	/* Channel will never be written to, so program will run as a daemon */
 	done := make(chan bool)
@@ -173,7 +175,7 @@ func main() {
 		var err error
 		for {
 			select {
-			case event := <-source_watcher.Events:
+			case event := <-sourceWatcher.Events:
 
 				if (event.Op&fsnotify.Remove == fsnotify.Remove) ||
 					(event.Op&fsnotify.Rename == fsnotify.Rename) {
@@ -181,7 +183,7 @@ func main() {
 					// Saving a file can generate delete events. Check whether
 					// file actually deleted before acting
 					if _, err = os.Stat(event.Name); err == nil {
-						source_watcher.Add(event.Name)
+						sourceWatcher.Add(event.Name)
 					} else {
 
 						log.Println("DBG: Remove", event.Name)
@@ -190,7 +192,7 @@ func main() {
 							for k, v := range sourceHash {
 								if v == event.Name {
 									delete(sourceHash, k)
-									err := source_watcher.Remove(k)
+									err := sourceWatcher.Remove(k)
 									if err != nil {
 										log.Println("ERROR:", err)
 									}
@@ -200,7 +202,7 @@ func main() {
 						} else {
 
 							delete(sourceHash, event.Name)
-							err := source_watcher.Remove(event.Name)
+							err := sourceWatcher.Remove(event.Name)
 							if err != nil {
 								log.Println("ERROR:", err)
 							}
@@ -235,7 +237,7 @@ func main() {
 					}
 				}
 
-			case err := <-source_watcher.Errors:
+			case err := <-sourceWatcher.Errors:
 				log.Println("error:", err)
 			}
 		}
@@ -251,7 +253,7 @@ func main() {
 		var err error
 		for {
 			select {
-			case event := <-config_watcher.Events:
+			case event := <-configWatcher.Events:
 
 				if event.Op&fsnotify.Create == fsnotify.Create {
 
@@ -261,7 +263,7 @@ func main() {
 						if err != nil {
 							log.Fatal(err)
 						}
-						err = AddPageSources(source_watcher, event.Name, config)
+						err = AddPageSources(sourceWatcher, event.Name, config)
 						if err != nil {
 							log.Println("ERROR:", err)
 						}
@@ -279,7 +281,7 @@ func main() {
 					//	if err != nil {
 					//		log.Fatal(err)
 					//	}
-					//	AddPageSources(source_watcher, event.Name, config)
+					//	AddPageSources(sourceWatcher, event.Name, config)
 					//	log.Println("Renamed", event.Name)
 					//}
 					log.Println("Renamed", event.Name, "(no-op)")
@@ -295,7 +297,7 @@ func main() {
 
 				}
 
-			case err := <-config_watcher.Errors:
+			case err := <-configWatcher.Errors:
 				log.Println("error:", err)
 			}
 		}
@@ -305,7 +307,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = config_watcher.Add(configDir)
+	err = configWatcher.Add(configDir)
 	if err != nil {
 		log.Fatal(err)
 	}

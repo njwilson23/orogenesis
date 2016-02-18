@@ -44,7 +44,8 @@ func getExternalHTML(config map[string]string, key *string) (template.HTML, erro
 	return result, nil
 }
 
-// Read a configuration file and return a pointer to a Page struct
+// ReadConfig reads a configuration file and returns a configuration map and
+// map of HTML fragments
 func ReadConfig(path string) (map[string]string, map[string]template.HTML, error) {
 
 	var err error
@@ -103,6 +104,8 @@ func ReadConfig(path string) (map[string]string, map[string]template.HTML, error
 	return config, htmlMap, nil
 }
 
+// BuildPage takes a map of configuration values and a map of HTML fragments
+// and constructs a static webpage
 func BuildPage(config map[string]string, data map[string]template.HTML) (string, error) {
 
 	fnmHTML := config["oro-output"]
